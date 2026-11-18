@@ -195,7 +195,7 @@
 
             // Navigation & Temporary UI States
             selectedSellerLoginName: null, // For Key Account viewing a specific seller
-            selectedOrderId: null, // For viewing/editing a specific Pass Order
+            selectedOrderId: null, // For viewing/editing a specific Order History
             searchQuery: "", // Search filter for 65-item tables
             
             // Human Verification Challenge on Login Page
@@ -524,13 +524,13 @@
                                 </button>
                             </div>
 
-                            <!-- Top-Middle: Pass Order (+ Current Stock Quick Link) -->
+                            <!-- Top-Middle: Order History (+ Current Stock Quick Link) -->
                             <div class="flex items-center gap-2">
                                 <button onclick="navigate('seller-stock')" class="px-3.5 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'stock' ? 'bg-white text-emerald-900 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
                                     <i class="fa-solid fa-boxes-stacked"></i> Current Stock
                                 </button>
                                 <button onclick="navigate('seller-pass-orders')" class="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'pass-orders' ? 'bg-white text-emerald-900 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
-                                    <i class="fa-solid fa-clock-rotate-left"></i> Pass Order
+                                    <i class="fa-solid fa-clock-rotate-left"></i> Order History
                                 </button>
                             </div>
 
@@ -1153,14 +1153,14 @@
             });
         }
 
-        // 2.2 Pass Order List & Detail View
+        // 2.2 Order History List & Detail View
         function renderSellerPassOrdersPage() {
             const seller = getLoggedSeller();
             return `
                 ${renderSellerNavbar('pass-orders')}
                 <main class="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
                     <div class="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100">
-                        <h1 class="text-xl font-bold text-slate-900">Pass Order History</h1>
+                        <h1 class="text-xl font-bold text-slate-900">Order History History</h1>
                         <p class="text-xs text-slate-500 mt-0.5">Select an order date below to view the submitted product quantities.</p>
                     </div>
 
@@ -1217,7 +1217,7 @@
                                 </button>
                                 <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold">Order Date: ${order.date}</span>
                             </div>
-                            <h1 class="text-xl font-bold text-slate-900 mt-2">Pass Order Record (${order.id})</h1>
+                            <h1 class="text-xl font-bold text-slate-900 mt-2">Order History Record (${order.id})</h1>
                         </div>
                         <div class="text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
                             <i class="fa-solid fa-lock text-emerald-700 mr-1"></i> Fixed Record (Managed by Key Account)
@@ -1442,7 +1442,7 @@
                             </div>
                         </div>
 
-                        <!-- Top-Middle: Account Info | Top-Right: Pass Order Management -->
+                        <!-- Top-Middle: Account Info | Top-Right: Order History Management -->
                         <div class="flex flex-wrap items-center gap-2">
                             <button onclick="navigate('key-seller-main')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeSubTab === 'main' ? 'bg-white text-emerald-950 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
                                 <i class="fa-solid fa-boxes-stacked mr-1"></i> Seller Main Page (Stock)
@@ -1451,7 +1451,7 @@
                                 <i class="fa-solid fa-address-card mr-1"></i> Account Info
                             </button>
                             <button onclick="navigate('key-pass-order-mgmt')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeSubTab === 'orders' ? 'bg-white text-emerald-950 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
-                                <i class="fa-solid fa-file-invoice mr-1"></i> Pass Order Management
+                                <i class="fa-solid fa-file-invoice mr-1"></i> Order History Management
                             </button>
                         </div>
                     </div>
@@ -1713,7 +1713,7 @@
             });
         }
 
-        // 3-1-2 Pass Order Management (Directly linked to seller's Pass Order Sheet, editable quantity cells)
+        // 3-1-2 Order History Management (Directly linked to seller's Order History Sheet, editable quantity cells)
         function renderKeyPassOrderMgmtPage() {
             const seller = getSelectedSellerForKey();
             if (!seller) return renderKeySellerListPage();
@@ -1730,8 +1730,8 @@
                 <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
                     <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <h1 class="text-xl font-bold text-slate-900">Pass Order Management — ${esc(seller.loginName)}</h1>
-                            <p class="text-xs text-slate-500 mt-0.5">Directly linked to the seller's Pass Order Sheet. Each carton quantity cell can be adjusted and saved.</p>
+                            <h1 class="text-xl font-bold text-slate-900">Order History Management — ${esc(seller.loginName)}</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Directly linked to the seller's Order History Sheet. Each carton quantity cell can be adjusted and saved.</p>
                         </div>
                         ${seller.orders.length > 0 ? `
                             <div class="flex items-center gap-3">
@@ -1746,7 +1746,7 @@
                     ${!activeOrder ? `
                         <div class="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
                             <i class="fa-solid fa-clipboard-list text-4xl text-slate-300 mb-3"></i>
-                            <h3 class="text-base font-bold text-slate-700">No Pass Orders Found</h3>
+                            <h3 class="text-base font-bold text-slate-700">No Order Historys Found</h3>
                             <p class="text-xs text-slate-500 mt-1">This seller has not submitted any orders yet.</p>
                         </div>
                     ` : `
@@ -1784,9 +1784,9 @@
                                 </table>
                             </div>
                             <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-                                <span class="text-xs text-slate-500">Changes saved here immediately update ${esc(seller.loginName)}'s Pass Order sheet.</span>
+                                <span class="text-xs text-slate-500">Changes saved here immediately update ${esc(seller.loginName)}'s Order History sheet.</span>
                                 <button onclick="saveKeyPassOrderEdits()" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow transition flex items-center gap-2">
-                                    <i class="fa-solid fa-floppy-disk"></i> Save Pass Order Changes
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Order History Changes
                                 </button>
                             </div>
                         </div>
@@ -1816,7 +1816,7 @@
 
             activeOrder.items = updatedItems;
             await saveSellerToCloud(seller);
-            showToast(`Pass Order (${activeOrder.date}) updated in cloud and synced to ${seller.loginName}!`);
+            showToast(`Order History (${activeOrder.date}) updated in cloud and synced to ${seller.loginName}!`);
             render();
         }
 
