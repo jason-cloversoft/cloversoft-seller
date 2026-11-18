@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloversoft All-in-one by Jason</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for clean UI icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f7f4;
+        }
+        /* Custom scrollbar for large product tables */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e5ede8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2e6f40;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1e4d2b;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Custom Notification Toast / Modal System (Replaces alert/confirm) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- Custom Password Verification / Action Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-emerald-100 transform transition-all">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <i class="fa-solid fa-shield-halved text-lg"></i>
+                </div>
+                <div>
+                    <h3 id="modal-title" class="text-lg font-bold text-slate-900">Security Verification</h3>
+                    <p id="modal-subtitle" class="text-xs text-slate-500">Please enter password to confirm this action.</p>
+                </div>
+            </div>
+            <div class="mb-5">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5" id="modal-input-label">Password</label>
+                <input type="password" id="modal-password-input" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none transition" placeholder="Enter password...">
+                <p id="modal-error-msg" class="text-red-600 text-xs mt-1.5 hidden"></p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+                <button type="button" id="modal-confirm-btn" class="px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Root Container -->
+    <div id="app" class="flex-grow flex flex-col"></div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-emerald-100 py-4 px-6 text-center text-xs text-slate-500 mt-auto">
+        <p class="font-medium text-emerald-900">Cloversoft All-in-one by Jason &bull; E-Commerce Stock &amp; Order Management Portal <span id="cloud-sync-badge" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-600"><i class="fa-solid fa-cloud"></i> Connecting...</span></p>
+        <p class="mt-0.5">7500A Beach Road, #05-307 The Plaza, Singapore 199591</p>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 1. MASTER PRODUCT CATALOG (ALL 65 SKUs)
+        // ==========================================
+        const PRODUCTS = [
+            { no: 1, name: "Baby Wipes 40", sku: "CS-PWBW-40", upc: 30 },
+            { no: 2, name: "Baby Wipes 70", sku: "CS-PWBW-70", upc: 8 },
+            { no: 3, name: "Antibacterial Wipes 40", sku: "CS-ABW-40", upc: 40 },
+            { no: 4, name: "Antibacterial Wipes 15", sku: "CS-ABW-15", upc: 96 },
+            { no: 5, name: "Antibacterial Wipes 8", sku: "CS-ABW-8N", upc: 20 },
+            { no: 6, name: "Antibacterial Wipes 100", sku: "CS-ABW-100", upc: 20 },
+            { no: 7, name: "Facial Tissue 2", sku: "CS-FT2-150", upc: 15 },
+            { no: 8, name: "Facial Tissue 3", sku: "CS-FT3-130", upc: 15 },
+            { no: 9, name: "Toilet Tissue", sku: "CS-TP3-200", upc: 10 },
+            { no: 10, name: "Compact Tissue", sku: "CS-CPFT3-110", upc: 40 },
+            { no: 11, name: "Kitchen Towel", sku: "CS-KHT-160", upc: 20 },
+            { no: 12, name: "Pocket Tissue", sku: "CS-PT3-10", upc: 32 },
+            { no: 13, name: "Mosquito Patch", sku: "CS-MP-10", upc: 20 },
+            { no: 14, name: "Mosquito Spray", sku: "CS-MS50", upc: 20 },
+            { no: 15, name: "Hand Wash", sku: "CS-HW-500", upc: 20 },
+            { no: 16, name: "Hand Wash (Grapefruit)", sku: "CS-HW-500G", upc: 20 },
+            { no: 17, name: "Hand Wash (Patchouli)", sku: "CS-HW-500P", upc: 20 },
+            { no: 18, name: "Hand Wash Refill", sku: "CS-HW-RF500", upc: 20 },
+            { no: 19, name: "Hand Wash Refill (Grapefruit)", sku: "CS-HW-RF500G", upc: 20 },
+            { no: 20, name: "Hand Wash Refill (Patchouli)", sku: "CS-HW-RF500P", upc: 20 },
+            { no: 21, name: "Shampoo (Tranquility)", sku: "CS-S-500RVL", upc: 12 },
+            { no: 22, name: "Conditioner (Tranquility)", sku: "CS-C-500RVL", upc: 12 },
+            { no: 23, name: "Shampoo (Anti Hair Loss)", sku: "CS-S-500LT", upc: 12 },
+            { no: 24, name: "Conditioner (Anti Hair Loss)", sku: "CS-C-500LT", upc: 12 },
+            { no: 25, name: "Shampoo (Scalp Care)", sku: "CS-S-500P", upc: 12 },
+            { no: 26, name: "Body Wash (Geranium)", sku: "CS-BW-750GBM", upc: 16 },
+            { no: 27, name: "Body Wash (Lavender)", sku: "CS-BW-750LRO", upc: 16 },
+            { no: 28, name: "Body Wash (Grapefruit)", sku: "CS-BW-750G", upc: 16 },
+            { no: 29, name: "Body Wash (Vetiver)", sku: "CS-BW-750V", upc: 16 },
+            { no: 30, name: "Body Wash Refill (Geranium)", sku: "BW RF GBM", upc: 16 },
+            { no: 31, name: "Body Wash Refill (Lavender)", sku: "BW RF LRO", upc: 16 },
+            { no: 32, name: "Dishwashing Refill (Peppermint)", sku: "CS-DW-500RF-PSP", upc: 20 },
+            { no: 33, name: "Dishwashing (Roman Chamomile)", sku: "CS-DW-500-RC", upc: 12 },
+            { no: 34, name: "Dishwashing (Peppermint)", sku: "CS-DW-500P", upc: 12 },
+            { no: 35, name: "Foaming Hand Wash", sku: "CS-FHW-300-GF", upc: 16 },
+            { no: 36, name: "Foaming Hand Wash Refill", sku: "CS-FHW-RF500-GF", upc: 16 },
+            { no: 37, name: "Foaming Hand Wash (Patchouli)", sku: "CS-FHW-300-P", upc: 16 },
+            { no: 38, name: "Foaming Hand Wash Refill (Patchouli)", sku: "CS-FHW-RF500-P", upc: 16 },
+            { no: 39, name: "Laundry Detergent (Patchouli)", sku: "CS-LD-1.5P Refill", upc: 8 },
+            { no: 40, name: "Laundry Detergent (Vetiver)", sku: "CS-LD-1.5V Refill", upc: 8 },
+            { no: 41, name: "Laundry Detergent (Grapefruit)", sku: "CS-LD-1.5G Refill", upc: 8 },
+            { no: 42, name: "Toilet Cleaner", sku: "CS-TC500", upc: 20 },
+            { no: 43, name: "Toilet Cleaner (Vanilla)", sku: "CS-TC500VL", upc: 20 },
+            { no: 44, name: "Toilet Cleaner (Peppermint)", sku: "CS-TC500PC", upc: 20 },
+            { no: 45, name: "Kitchen Wipes (Glacier Mint)", sku: "KW-40LM", upc: 36 },
+            { no: 46, name: "Kitchen Wipes (Alpine Lavender)", sku: "KW-40LV", upc: 36 },
+            { no: 47, name: "Kitchen Wipes (Sorrento Lemon)", sku: "KW-40M", upc: 36 },
+            { no: 48, name: "Floor Cleaner (Sage)", sku: "FC-1.5C", upc: 8 },
+            { no: 49, name: "Floor Cleaner (Eucalyptus)", sku: "FC-1.5L", upc: 8 },
+            { no: 50, name: "Floor Cleaner (Cedarwood)", sku: "FC-1.5S", upc: 8 },
+            { no: 51, name: "Laundry Pods 46 (Garden Ocean)", sku: "CS-LPOD-46P", upc: 24 },
+            { no: 52, name: "Laundry Pods 46 (Morning Glow, Lavender)", sku: "CS-LPOD-46L", upc: 24 },
+            { no: 53, name: "Laundry Pods 46 (Summer Holiday, Mojito)", sku: "CS-LPOD-46M", upc: 24 },
+            { no: 54, name: "Laundry Pods 25 (Atlatic Coast)", sku: "CS-LPOD-25P", upc: 25 },
+            { no: 55, name: "Laundry Pods 25 (Cotton Candy)", sku: "CS-LPOD-25P-CC", upc: 25 },
+            { no: 56, name: "Laundry Pods 25 (Valley of Dreams)", sku: "CS-LPOD-25A", upc: 25 },
+            { no: 57, name: "Laundry Pods 25 (Rainbow Vanilla)", sku: "CS-LPOD-25S", upc: 25 },
+            { no: 58, name: "Laundry Pods 20 (Rose grape)", sku: "CS-LPOD-20P-SRG", upc: 30 },
+            { no: 59, name: "Laundry Pods 20 (Eucalyptus Dream)", sku: "CS-LPOD-20P-SE", upc: 30 },
+            { no: 60, name: "Laundry Pods 20 (Sakura)", sku: "CS-LPOD-20S", upc: 30 },
+            { no: 61, name: "Laundry Pods 20 (Fairy Dust)", sku: "CS-LPOD-20F", upc: 30 },
+            { no: 62, name: "Laundry Pods 60 (Rose grape)", sku: "CS-LPOD-60P-SRG", upc: 12 },
+            { no: 63, name: "Laundry Pods 60 (Eucalyptus Dream)", sku: "CS-LPOD-60P-SE", upc: 12 },
+            { no: 64, name: "Pet Shampoo (Soft & Shiny)", sku: "CS-PS-750FC", upc: 8 },
+            { no: 65, name: "Pet Shampoo (Anti Fungal)", sku: "CS-PS-750AF", upc: 8 }
+        ];
+
+        // ==========================================
+        // 2. CLOUD-SYNCED APPLICATION STATE & FIREBASE
+        // ==========================================
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cloversoft-all-in-one';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        let db = null;
+        let auth = null;
+        let cloudUser = null;
+
+        // Helper to create initial 0 stock map for a new seller
+        function createEmptyStockMap() {
+            const stock = {};
+            PRODUCTS.forEach(p => { stock[p.no] = 0; });
+            return stock;
+        }
+
+        // Seed sample stock for demo seller so tables look rich immediately
+        function createDemoStockMap() {
+            const stock = createEmptyStockMap();
+            stock[1] = 120; stock[2] = 64; stock[3] = 200; stock[7] = 90;
+            stock[15] = 40; stock[39] = 32; stock[51] = 72; stock[64] = 16;
+            return stock;
+        }
+
+        const DEFAULT_KEY_ACCOUNT = {
+            loginName: "Jason",
+            password: "200209",
+            companyName: "Cloversoft Pte Ltd (Alps Group)",
+            contactNumber: "8828-5169",
+            deliveryAddress: "7500A Beach Road, #05-307 The Plaza, Singapore 199591",
+            email: "Jason@alpsgroup.com"
+        };
+
+        const DEFAULT_DEMO_SELLER = {
+            id: "seller_greenmart_sg",
+            loginName: "GreenMart_SG",
+            password: "seller123",
+            companyName: "GreenMart E-Commerce Pte Ltd",
+            contactNumber: "9123-4567",
+            deliveryAddress: "10 Ubi Crescent, #04-22 Ubi Techpark, Singapore 408564",
+            email: "orders@greenmart.sg",
+            stock: createDemoStockMap(),
+            orders: [
+                {
+                    id: "ORD-20261101",
+                    date: "2026-11-01",
+                    items: { 1: 5, 3: 4, 15: 2, 51: 3 } // stored in cartons
+                }
+            ]
+        };
+
+        const state = {
+            // Always start on Login Page
+            currentView: 'login', // 'login', 'create-account', 'reset-password', 'seller-stock', 'seller-new-order', 'seller-pass-orders', 'seller-pass-order-detail', 'seller-account', 'key-seller-list', 'key-overall', 'key-account', 'key-seller-main', 'key-seller-info', 'key-pass-order-mgmt'
+            currentUser: null, // { role: 'key' | 'seller', loginName: string, docId?: string }
+            isCloudReady: false,
+            
+            // Key Account Data (Jason)
+            keyAccount: { ...DEFAULT_KEY_ACCOUNT },
+
+            // Sellers Database (Synced from Cloud)
+            sellers: [ { ...DEFAULT_DEMO_SELLER } ],
+
+            // Navigation & Temporary UI States
+            selectedSellerLoginName: null, // For Key Account viewing a specific seller
+            selectedOrderId: null, // For viewing/editing a specific Pass Order
+            searchQuery: "", // Search filter for 65-item tables
+            
+            // Human Verification Challenge on Login Page
+            captchaNum1: Math.floor(Math.random() * 9) + 1,
+            captchaNum2: Math.floor(Math.random() * 9) + 1,
+            
+            // Reset Password Flow State
+            resetFlow: {
+                verifiedUser: null,
+                generatedCode: null,
+                codeSent: false,
+                codeVerified: false
+            }
+        };
+
+        // Cloud Persistence Helpers (Strict Public Data Paths for Multi-Device Seller & Key Account Sync)
+        function updateCloudBadge(statusText, isConnected) {
+            const badge = document.getElementById('cloud-sync-badge');
+            if (!badge) return;
+            badge.className = isConnected
+                ? "ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200"
+                : "ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200";
+            badge.innerHTML = isConnected
+                ? `<i class="fa-solid fa-cloud-check"></i> ${statusText}`
+                : `<i class="fa-solid fa-cloud-arrow-up"></i> ${statusText}`;
+        }
+
+        async function saveKeyAccountToCloud() {
+            if (!db || !cloudUser) return;
+            try {
+                const kaRef = doc(db, 'artifacts', appId, 'public', 'data', 'cloversoft_config', 'key_account');
+                await setDoc(kaRef, state.keyAccount);
+            } catch (err) {
+                console.error("Cloud sync error (Key Account):", err);
+                showToast("Warning: Could not sync Key Account changes to cloud.", "error");
+            }
+        }
+
+        async function saveSellerToCloud(sellerObj) {
+            if (!db || !cloudUser || !sellerObj) return;
+            try {
+                const docId = sellerObj.id || ('seller_' + sellerObj.loginName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+                sellerObj.id = docId;
+                const sellerRef = doc(db, 'artifacts', appId, 'public', 'data', 'cloversoft_sellers', docId);
+                await setDoc(sellerRef, {
+                    id: docId,
+                    loginName: sellerObj.loginName,
+                    password: sellerObj.password,
+                    companyName: sellerObj.companyName,
+                    contactNumber: sellerObj.contactNumber,
+                    deliveryAddress: sellerObj.deliveryAddress,
+                    email: sellerObj.email,
+                    stock: sellerObj.stock || createEmptyStockMap(),
+                    orders: sellerObj.orders || []
+                });
+            } catch (err) {
+                console.error("Cloud sync error (Seller):", err);
+                showToast("Warning: Could not sync seller data to cloud.", "error");
+            }
+        }
+
+        async function deleteSellerFromCloud(sellerObj) {
+            if (!db || !cloudUser || !sellerObj) return;
+            try {
+                const docId = sellerObj.id || ('seller_' + sellerObj.loginName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+                const sellerRef = doc(db, 'artifacts', appId, 'public', 'data', 'cloversoft_sellers', docId);
+                await deleteDoc(sellerRef);
+            } catch (err) {
+                console.error("Cloud delete error:", err);
+                showToast("Warning: Could not remove seller from cloud.", "error");
+            }
+        }
+
+        async function initCloudStorage() {
+            if (!firebaseConfig) {
+                updateCloudBadge("Local Session Mode", false);
+                state.isCloudReady = true;
+                render();
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // RULE 3: Authenticate BEFORE any Firestore operations
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                    cloudUser = cred.user;
+                } else {
+                    const cred = await signInAnonymously(auth);
+                    cloudUser = cred.user;
+                }
+
+                if (!cloudUser) return;
+
+                // Seed initial Key Account & Demo Seller if cloud database is brand new
+                const kaRef = doc(db, 'artifacts', appId, 'public', 'data', 'cloversoft_config', 'key_account');
+                const kaSnap = await getDoc(kaRef);
+                if (!kaSnap.exists()) {
+                    await setDoc(kaRef, DEFAULT_KEY_ACCOUNT);
+                    const demoRef = doc(db, 'artifacts', appId, 'public', 'data', 'cloversoft_sellers', DEFAULT_DEMO_SELLER.id);
+                    await setDoc(demoRef, DEFAULT_DEMO_SELLER);
+                }
+
+                // Real-time listener for Key Account profile
+                onSnapshot(kaRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        state.keyAccount = snapshot.data();
+                        if (state.currentUser && state.currentUser.role === 'key') {
+                            state.currentUser.loginName = state.keyAccount.loginName;
+                        }
+                        if (state.currentView === 'key-account') render();
+                    }
+                }, (error) => {
+                    console.error("Key Account snapshot error:", error);
+                });
+
+                // Real-time listener for All Sellers (RULE 2: Simple collection query, sort in JS memory)
+                const sellersCol = collection(db, 'artifacts', appId, 'public', 'data', 'cloversoft_sellers');
+                onSnapshot(sellersCol, (querySnapshot) => {
+                    const loadedSellers = [];
+                    querySnapshot.forEach((docSnap) => {
+                        const data = docSnap.data();
+                        data.id = docSnap.id;
+                        if (!data.stock) data.stock = createEmptyStockMap();
+                        if (!data.orders) data.orders = [];
+                        loadedSellers.push(data);
+                    });
+
+                    // Sort alphabetically by loginName in memory
+                    loadedSellers.sort((a, b) => a.loginName.localeCompare(b.loginName));
+                    state.sellers = loadedSellers;
+                    state.isCloudReady = true;
+                    updateCloudBadge("Cloud Synced", true);
+
+                    // Avoid overwriting active typing inputs on edit forms during background updates
+                    const activeTag = document.activeElement ? document.activeElement.tagName : '';
+                    if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT') {
+                        render();
+                    }
+                }, (error) => {
+                    console.error("Sellers snapshot error:", error);
+                    updateCloudBadge("Sync Interrupted", false);
+                });
+
+            } catch (err) {
+                console.error("Cloud initialization failed:", err);
+                updateCloudBadge("Offline Mode", false);
+                state.isCloudReady = true;
+                render();
+            }
+        }
+
+        // ==========================================
+        // 3. UTILITY FUNCTIONS & NOTIFICATIONS
+        // ==========================================
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = type === 'success' 
+                ? 'bg-emerald-800 text-white border-emerald-600' 
+                : type === 'error' 
+                ? 'bg-red-700 text-white border-red-500' 
+                : 'bg-slate-800 text-white border-slate-600';
+            const icon = type === 'success' 
+                ? 'fa-circle-check' 
+                : type === 'error' 
+                ? 'fa-circle-exclamation' 
+                : 'fa-circle-info';
+
+            toast.className = `${colors} border px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium pointer-events-auto transform transition-all duration-300 translate-y-0 opacity-100`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span class="flex-1">${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // Custom Modal for Password Verification
+        let modalCallback = null;
+        function openPasswordModal({ title, subtitle, expectedPassword, confirmBtnText = "Confirm", isDanger = false, onSuccess }) {
+            const modal = document.getElementById('auth-modal');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-subtitle').textContent = subtitle;
+            const input = document.getElementById('modal-password-input');
+            const err = document.getElementById('modal-error-msg');
+            const btn = document.getElementById('modal-confirm-btn');
+
+            input.value = '';
+            err.classList.add('hidden');
+            btn.textContent = confirmBtnText;
+            btn.className = isDanger 
+                ? 'px-5 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white shadow-sm transition'
+                : 'px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition';
+
+            modalCallback = () => {
+                if (input.value === expectedPassword) {
+                    closeModal();
+                    onSuccess();
+                } else {
+                    err.textContent = "Incorrect password. Please try again.";
+                    err.classList.remove('hidden');
+                }
+            };
+
+            btn.onclick = modalCallback;
+            input.onkeydown = (e) => { if (e.key === 'Enter') modalCallback(); };
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => input.focus(), 50);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('auth-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modalCallback = null;
+        }
+
+        function navigate(view, params = {}) {
+            if (params.sellerLoginName !== undefined) state.selectedSellerLoginName = params.sellerLoginName;
+            if (params.orderId !== undefined) state.selectedOrderId = params.orderId;
+            state.searchQuery = "";
+            state.currentView = view;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function logout() {
+            state.currentUser = null;
+            state.selectedSellerLoginName = null;
+            state.selectedOrderId = null;
+            refreshCaptcha();
+            navigate('login');
+            showToast("Logged out safely.", "info");
+        }
+
+        function refreshCaptcha() {
+            state.captchaNum1 = Math.floor(Math.random() * 9) + 1;
+            state.captchaNum2 = Math.floor(Math.random() * 9) + 1;
+        }
+
+        function getLoggedSeller() {
+            if (!state.currentUser || state.currentUser.role !== 'seller') return null;
+            return state.sellers.find(s => s.loginName === state.currentUser.loginName);
+        }
+
+        function getSelectedSellerForKey() {
+            return state.sellers.find(s => s.loginName === state.selectedSellerLoginName);
+        }
+
+        // ==========================================
+        // 4. SHARED HEADER BARS
+        // ==========================================
+        function renderSellerNavbar(activeTab) {
+            const seller = getLoggedSeller();
+            return `
+                <header class="bg-emerald-900 text-white shadow-md sticky top-0 z-40">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex flex-wrap items-center justify-between py-3 gap-3">
+                            <!-- Top-Left: New Order + Brand -->
+                            <div class="flex items-center gap-3">
+                                <button onclick="navigate('seller-new-order')" class="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'new-order' ? 'bg-amber-400 text-emerald-950 shadow' : 'bg-emerald-700 hover:bg-emerald-600 text-white'}">
+                                    <i class="fa-solid fa-cart-plus"></i> New Order
+                                </button>
+                                <button onclick="navigate('seller-stock')" class="hidden sm:flex items-center gap-2 text-left hover:opacity-90 transition ml-2">
+                                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-900 flex items-center justify-center font-bold"><i class="fa-solid fa-clover"></i></span>
+                                    <div>
+                                        <div class="text-sm font-bold leading-tight">Cloversoft All-in-one</div>
+                                        <div class="text-[11px] text-emerald-300">Seller: ${seller.loginName}</div>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <!-- Top-Middle: Pass Order (+ Current Stock Quick Link) -->
+                            <div class="flex items-center gap-2">
+                                <button onclick="navigate('seller-stock')" class="px-3.5 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'stock' ? 'bg-white text-emerald-900 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
+                                    <i class="fa-solid fa-boxes-stacked"></i> Current Stock
+                                </button>
+                                <button onclick="navigate('seller-pass-orders')" class="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'pass-orders' ? 'bg-white text-emerald-900 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> Pass Order
+                                </button>
+                            </div>
+
+                            <!-- Top-Right: Account Page & Logout -->
+                            <div class="flex items-center gap-2">
+                                <button onclick="navigate('seller-account')" class="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'account' ? 'bg-white text-emerald-900 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
+                                    <i class="fa-solid fa-user-gear"></i> Account Page
+                                </button>
+                                <button onclick="logout()" title="Log Out" class="p-2.5 rounded-xl bg-emerald-950/60 hover:bg-red-600 text-emerald-200 hover:text-white transition">
+                                    <i class="fa-solid fa-right-from-bracket"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        function renderKeyAccountNavbar(activeTab) {
+            return `
+                <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40 border-b border-emerald-700/40">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex flex-wrap items-center justify-between py-3 gap-3">
+                            <!-- Top-Left: Overall -->
+                            <div class="flex items-center gap-3">
+                                <button onclick="navigate('key-overall')" class="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'overall' ? 'bg-emerald-500 text-slate-950 shadow' : 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700'}">
+                                    <i class="fa-solid fa-table-cells"></i> Overall
+                                </button>
+                                <button onclick="navigate('key-seller-list')" class="px-3.5 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'seller-list' ? 'bg-white text-slate-900 shadow' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'}">
+                                    <i class="fa-solid fa-users"></i> Seller List
+                                </button>
+                            </div>
+
+                            <!-- Top-Middle: Account Page - Key Account -->
+                            <div class="flex items-center gap-2">
+                                <button onclick="navigate('key-account')" class="px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2 ${activeTab === 'key-account' ? 'bg-white text-slate-900 shadow' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'}">
+                                    <i class="fa-solid fa-id-badge"></i> Account Page - Key Account
+                                </button>
+                            </div>
+
+                            <!-- Top-Right: Key Account Badge & Logout -->
+                            <div class="flex items-center gap-3">
+                                <span class="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700">
+                                    <i class="fa-solid fa-crown text-amber-400"></i> Key Account: ${state.keyAccount.loginName}
+                                </span>
+                                <button onclick="logout()" title="Log Out" class="p-2.5 rounded-xl bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition">
+                                    <i class="fa-solid fa-right-from-bracket"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        // ==========================================
+        // 5. AUTHENTICATION VIEWS (1, 1.1, 1.2)
+        // ==========================================
+        function renderLoginPage() {
+            return `
+                <div class="flex-grow flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-100">
+                    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-emerald-100 overflow-hidden">
+                        <div class="bg-emerald-800 px-6 py-7 text-center text-white relative overflow-hidden">
+                            <div class="w-14 h-14 bg-white/15 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl text-emerald-200 shadow-inner">
+                                <i class="fa-solid fa-clover"></i>
+                            </div>
+                            <h1 class="text-2xl font-bold tracking-tight">Cloversoft All-in-one</h1>
+                            <p class="text-emerald-200 text-xs mt-1 font-medium">by Jason &bull; Seller &amp; Stock Portal</p>
+                        </div>
+
+                        <form id="login-form" class="p-6 sm:p-8 space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Log-in Name</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i class="fa-solid fa-user"></i></span>
+                                    <input type="text" id="login-name" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none transition text-sm" placeholder="Enter your Log-in Name">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Password</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i class="fa-solid fa-lock"></i></span>
+                                    <input type="password" id="login-password" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none transition text-sm" placeholder="Enter your Password">
+                                </div>
+                            </div>
+
+                            <!-- Human-Check System -->
+                            <div class="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-robot text-emerald-700"></i> Human-Check Verification
+                                    </label>
+                                    <button type="button" onclick="refreshCaptcha(); render();" class="text-xs text-emerald-700 hover:underline font-medium">
+                                        <i class="fa-solid fa-rotate"></i> New Code
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="px-3.5 py-2 bg-white rounded-xl border border-emerald-200 font-mono font-bold text-emerald-900 text-sm select-none">
+                                        ${state.captchaNum1} + ${state.captchaNum2} = ?
+                                    </div>
+                                    <input type="number" id="login-captcha" required class="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm bg-white" placeholder="Answer">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-right-to-bracket"></i> Log-in
+                            </button>
+
+                            <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+                                <button type="button" onclick="startResetFlow()" class="text-slate-600 hover:text-emerald-700 font-semibold transition">
+                                    Forgot your password?
+                                </button>
+                                <button type="button" onclick="navigate('create-account')" class="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold transition">
+                                    Create New Account
+                                </button>
+                            </div>
+
+                            <!-- Quick Demo Helper Hint -->
+                            <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 leading-relaxed">
+                                <span class="font-bold text-slate-700">Quick Access Guide:</span><br>
+                                &bull; Key Account: <code class="text-emerald-700 font-semibold">Jason</code> / Pass: <code class="text-emerald-700 font-semibold">200209</code><br>
+                                &bull; Demo Seller: <code class="text-emerald-700 font-semibold">GreenMart_SG</code> / Pass: <code class="text-emerald-700 font-semibold">seller123</code>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function attachLoginHandlers() {
+            const form = document.getElementById('login-form');
+            if (!form) return;
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                const name = document.getElementById('login-name').value.trim();
+                const pass = document.getElementById('login-password').value;
+                const captchaAns = parseInt(document.getElementById('login-captcha').value, 10);
+
+                if (captchaAns !== (state.captchaNum1 + state.captchaNum2)) {
+                    showToast("Human-check verification failed. Please solve the math check.", "error");
+                    refreshCaptcha();
+                    render();
+                    return;
+                }
+
+                // Check Key Account
+                if (name === state.keyAccount.loginName && pass === state.keyAccount.password) {
+                    state.currentUser = { role: 'key', loginName: state.keyAccount.loginName };
+                    showToast(`Welcome back, Key Account (${state.keyAccount.loginName})!`);
+                    navigate('key-seller-list');
+                    return;
+                }
+
+                // Check Seller Accounts
+                const seller = state.sellers.find(s => s.loginName === name && s.password === pass);
+                if (seller) {
+                    state.currentUser = { role: 'seller', loginName: seller.loginName };
+                    showToast(`Welcome, ${seller.companyName}!`);
+                    navigate('seller-stock');
+                    return;
+                }
+
+                showToast("Invalid Log-in Name or Password.", "error");
+                refreshCaptcha();
+                render();
+            };
+        }
+
+        // 1.1 Account Create Page
+        function renderCreateAccountPage() {
+            return `
+                <div class="flex-grow flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-100">
+                    <div class="max-w-xl w-full bg-white rounded-3xl shadow-xl border border-emerald-100 overflow-hidden">
+                        <div class="bg-emerald-800 px-6 py-5 text-white flex items-center justify-between">
+                            <div>
+                                <h2 class="text-xl font-bold">Create New Seller Account</h2>
+                                <p class="text-emerald-200 text-xs mt-0.5">Register your e-commerce store with Cloversoft</p>
+                            </div>
+                            <button onclick="navigate('login')" class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-semibold transition">
+                                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Login
+                            </button>
+                        </div>
+
+                        <form id="create-account-form" class="p-6 sm:p-8 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="sm:col-span-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="text-xs font-bold uppercase tracking-wider text-slate-600">Log-in Name *</label>
+                                        <span class="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>Can't change after creation
+                                        </span>
+                                    </div>
+                                    <input type="text" id="reg-login" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="Unique seller username">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password *</label>
+                                    <input type="password" id="reg-pass" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="Create password">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password Re-confirm *</label>
+                                    <input type="password" id="reg-pass-confirm" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="Re-enter password">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Company Name *</label>
+                                    <input type="text" id="reg-company" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="Registered company name">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Contact Number *</label>
+                                    <input type="text" id="reg-contact" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="e.g. 9123-4567">
+                                </div>
+
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
+                                    <input type="email" id="reg-email" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="seller@company.com">
+                                </div>
+
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Delivery Address *</label>
+                                    <textarea id="reg-address" rows="2" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none text-sm" placeholder="Full warehouse / delivery address"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 flex items-center justify-between gap-3">
+                                <button type="button" onclick="startResetFlow()" class="text-xs font-semibold text-emerald-700 hover:underline">
+                                    Go to Reset Password Page
+                                </button>
+                                <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow-md transition">
+                                    Create Account
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function attachCreateAccountHandlers() {
+            const form = document.getElementById('create-account-form');
+            if (!form) return;
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const loginName = document.getElementById('reg-login').value.trim();
+                const password = document.getElementById('reg-pass').value;
+                const confirmPassword = document.getElementById('reg-pass-confirm').value;
+                const companyName = document.getElementById('reg-company').value.trim();
+                const contactNumber = document.getElementById('reg-contact').value.trim();
+                const email = document.getElementById('reg-email').value.trim();
+                const deliveryAddress = document.getElementById('reg-address').value.trim();
+
+                if (password !== confirmPassword) {
+                    showToast("Password Re-confirm must match the Password!", "error");
+                    return;
+                }
+
+                if (loginName.toLowerCase() === state.keyAccount.loginName.toLowerCase() || 
+                    state.sellers.some(s => s.loginName.toLowerCase() === loginName.toLowerCase())) {
+                    showToast("This Log-in Name is already taken. Choose another.", "error");
+                    return;
+                }
+
+                const newSeller = {
+                    id: 'seller_' + loginName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString().slice(-4),
+                    loginName,
+                    password,
+                    companyName,
+                    contactNumber,
+                    deliveryAddress,
+                    email,
+                    stock: createEmptyStockMap(),
+                    orders: []
+                };
+
+                state.sellers.push(newSeller);
+                await saveSellerToCloud(newSeller);
+
+                showToast("Account created & saved to cloud! Added to Key Account Seller List.");
+                refreshCaptcha();
+                navigate('login');
+            };
+        }
+
+        // 1.2 Reset Password Page
+        function startResetFlow() {
+            state.resetFlow = {
+                verifiedUser: null,
+                generatedCode: null,
+                codeSent: false,
+                codeVerified: false
+            };
+            navigate('reset-password');
+        }
+
+        function renderResetPasswordPage() {
+            const rf = state.resetFlow;
+            return `
+                <div class="flex-grow flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-100">
+                    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-emerald-100 overflow-hidden">
+                        <div class="bg-emerald-800 px-6 py-5 text-white flex items-center justify-between">
+                            <div>
+                                <h2 class="text-xl font-bold">Reset Password</h2>
+                                <p class="text-emerald-200 text-xs mt-0.5">Verify your identity via email code</p>
+                            </div>
+                            <button onclick="navigate('login')" class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-semibold transition">
+                                <i class="fa-solid fa-arrow-left mr-1"></i> Login
+                            </button>
+                        </div>
+
+                        <div class="p-6 sm:p-8 space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Log-in Name</label>
+                                <input type="text" id="reset-login" value="${rf.verifiedUser ? rf.verifiedUser.loginName : ''}" ${rf.codeSent ? 'readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-sm"' : 'class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm"'} placeholder="Enter account Log-in Name">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address</label>
+                                <input type="email" id="reset-email" value="${rf.verifiedUser ? rf.verifiedUser.email : ''}" ${rf.codeSent ? 'readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-sm"' : 'class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm"'} placeholder="Enter registered email address">
+                            </div>
+
+                            ${!rf.codeSent ? `
+                                <button type="button" onclick="verifyIdentityForReset()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm transition">
+                                    Verify Log-in Name &amp; Email Match
+                                </button>
+                            ` : `
+                                <div class="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-emerald-900"><i class="fa-solid fa-check-circle mr-1"></i> Account Matched!</span>
+                                        <button type="button" onclick="sendSixDigitCode()" class="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm transition">
+                                            ${rf.generatedCode ? 'Resend 6-Digit Code' : 'Send 6-Digit Random Code'}
+                                        </button>
+                                    </div>
+                                    ${rf.generatedCode ? `
+                                        <p class="text-[11px] text-emerald-800 bg-white p-2 rounded-lg border border-emerald-200">
+                                            <i class="fa-solid fa-envelope-open-text mr-1"></i> Simulated Email to <strong>${rf.verifiedUser.email}</strong>: Your 6-digit verification code is <strong class="font-mono text-sm text-emerald-950">${rf.generatedCode}</strong>
+                                        </p>
+                                    ` : ''}
+                                </div>
+                            `}
+
+                            ${rf.generatedCode ? `
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Verification Code (6 Digits)</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="reset-code" maxlength="6" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm font-mono tracking-widest" placeholder="000000">
+                                        <button type="button" onclick="checkSixDigitCode()" class="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition">
+                                            Verify Code
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${rf.codeVerified ? `
+                                <div class="pt-3 border-t border-slate-200 space-y-3">
+                                    <p class="text-xs font-bold text-emerald-700"><i class="fa-solid fa-unlock-keyhole mr-1"></i> Code Verified! Set your new password:</p>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">New Password</label>
+                                        <input type="password" id="reset-new-pass" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm" placeholder="Enter new password">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Confirm New Password</label>
+                                        <input type="password" id="reset-confirm-pass" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm" placeholder="Confirm new password">
+                                    </div>
+                                    <button type="button" onclick="completePasswordReset()" class="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow-md transition">
+                                        Reset Password &amp; Return to Login
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function verifyIdentityForReset() {
+            const loginName = document.getElementById('reset-login').value.trim();
+            const email = document.getElementById('reset-email').value.trim();
+
+            if (loginName === state.keyAccount.loginName && email.toLowerCase() === state.keyAccount.email.toLowerCase()) {
+                state.resetFlow.verifiedUser = { type: 'key', loginName: state.keyAccount.loginName, email: state.keyAccount.email };
+                state.resetFlow.codeSent = true;
+                render();
+                return;
+            }
+
+            const seller = state.sellers.find(s => s.loginName === loginName && s.email.toLowerCase() === email.toLowerCase());
+            if (seller) {
+                state.resetFlow.verifiedUser = { type: 'seller', loginName: seller.loginName, email: seller.email };
+                state.resetFlow.codeSent = true;
+                render();
+                return;
+            }
+
+            showToast("Log-in Name and Email Address do not match any account.", "error");
+        }
+
+        function sendSixDigitCode() {
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            state.resetFlow.generatedCode = code;
+            showToast(`6-digit verification code sent to ${state.resetFlow.verifiedUser.email}!`);
+            render();
+        }
+
+        function checkSixDigitCode() {
+            const entered = document.getElementById('reset-code').value.trim();
+            if (entered === state.resetFlow.generatedCode) {
+                state.resetFlow.codeVerified = true;
+                showToast("Verification code confirmed!");
+                render();
+            } else {
+                showToast("Invalid verification code. Please check your 6-digit code.", "error");
+            }
+        }
+
+        async function completePasswordReset() {
+            const p1 = document.getElementById('reset-new-pass').value;
+            const p2 = document.getElementById('reset-confirm-pass').value;
+            if (!p1 || p1 !== p2) {
+                showToast("New Password and Confirm New Password must match and not be empty.", "error");
+                return;
+            }
+
+            const target = state.resetFlow.verifiedUser;
+            if (target.type === 'key') {
+                state.keyAccount.password = p1;
+                await saveKeyAccountToCloud();
+            } else {
+                const seller = state.sellers.find(s => s.loginName === target.loginName);
+                if (seller) {
+                    seller.password = p1;
+                    await saveSellerToCloud(seller);
+                }
+            }
+
+            showToast("Password successfully updated in cloud! Please log in.");
+            refreshCaptcha();
+            navigate('login');
+        }
+
+        // ==========================================
+        // 6. SELLER PAGES (2, 2.1, 2.2, 2.3)
+        // ==========================================
+
+        // 2. Main Page - Current Stock
+        function renderSellerStockPage() {
+            const seller = getLoggedSeller();
+            const filtered = PRODUCTS.filter(p => 
+                p.name.toLowerCase().includes(state.searchQuery.toLowerCase()) || 
+                p.sku.toLowerCase().includes(state.searchQuery.toLowerCase())
+            );
+
+            return `
+                ${renderSellerNavbar('stock')}
+                <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-900">Main Page - Current Stock</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Adjust your current available inventory in <strong>Units</strong> and click Save to sync with Cloversoft.</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="relative flex-1 sm:w-64">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-magnifying-glass text-xs"></i></span>
+                                <input type="text" value="${state.searchQuery}" oninput="state.searchQuery = this.value; render();" placeholder="Filter product or SKU..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-xs focus:border-emerald-600 outline-none">
+                            </div>
+                            <button onclick="saveSellerStock()" class="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow-md transition flex items-center gap-2">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Stock
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+                        <div class="overflow-x-auto max-h-[68vh]">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-emerald-800 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
+                                    <tr>
+                                        <th class="py-3.5 px-4 w-16">No.</th>
+                                        <th class="py-3.5 px-4">Products Name</th>
+                                        <th class="py-3.5 px-4">SKU code</th>
+                                        <th class="py-3.5 px-4 text-center">Units Per Carton</th>
+                                        <th class="py-3.5 px-4 text-right w-44">Total Quantity (Units)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    ${filtered.map(p => `
+                                        <tr class="hover:bg-emerald-50/50 transition">
+                                            <td class="py-2.5 px-4 font-semibold text-slate-500">${p.no}</td>
+                                            <td class="py-2.5 px-4 font-medium text-slate-900">${p.name}</td>
+                                            <td class="py-2.5 px-4 font-mono text-xs text-slate-600">${p.sku}</td>
+                                            <td class="py-2.5 px-4 text-center font-medium text-slate-700">${p.upc}</td>
+                                            <td class="py-2.5 px-4 text-right">
+                                                <input type="number" min="0" data-stock-no="${p.no}" value="${seller.stock[p.no] ?? 0}" class="seller-stock-input w-28 text-right px-3 py-1.5 rounded-lg border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none font-semibold text-emerald-950">
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                            <span class="text-xs text-slate-500">Showing ${filtered.length} of ${PRODUCTS.length} Cloversoft SKUs</span>
+                            <button onclick="saveSellerStock()" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow transition flex items-center gap-2">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Current Stock
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+        async function saveSellerStock() {
+            const seller = getLoggedSeller();
+            const inputs = document.querySelectorAll('.seller-stock-input');
+            inputs.forEach(inp => {
+                const no = parseInt(inp.getAttribute('data-stock-no'), 10);
+                const val = Math.max(0, parseInt(inp.value, 10) || 0);
+                seller.stock[no] = val;
+            });
+            await saveSellerToCloud(seller);
+            showToast("Current stock quantities saved to cloud and synced!");
+        }
+
+        // 2.1 New Order Page
+        function renderSellerNewOrderPage() {
+            const today = new Date().toISOString().split('T')[0];
+            return `
+                ${renderSellerNavbar('new-order')}
+                <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-900">New Order</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Enter order quantities in <strong>Cartons</strong>. Total Units are calculated automatically.</p>
+                        </div>
+                        <div class="flex items-center gap-3 bg-emerald-50 px-4 py-2.5 rounded-xl border border-emerald-200">
+                            <label class="text-xs font-bold uppercase text-emerald-900">Order Date (Required) *:</label>
+                            <input type="date" id="new-order-date" value="${today}" required class="px-3 py-1.5 rounded-lg border border-emerald-300 bg-white text-sm font-semibold text-slate-800 outline-none focus:border-emerald-600">
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+                        <div class="overflow-x-auto max-h-[65vh]">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-emerald-800 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
+                                    <tr>
+                                        <th class="py-3.5 px-4 w-14">No.</th>
+                                        <th class="py-3.5 px-4">Products Name</th>
+                                        <th class="py-3.5 px-4">SKU code</th>
+                                        <th class="py-3.5 px-4 text-center">Units Per Carton</th>
+                                        <th class="py-3.5 px-4 text-right w-40">Order Qty (Cartons)</th>
+                                        <th class="py-3.5 px-4 text-right w-40 bg-emerald-900">Total Qty (Units)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    ${PRODUCTS.map(p => `
+                                        <tr class="hover:bg-emerald-50/40 transition">
+                                            <td class="py-2.5 px-4 font-semibold text-slate-500">${p.no}</td>
+                                            <td class="py-2.5 px-4 font-medium text-slate-900">${p.name}</td>
+                                            <td class="py-2.5 px-4 font-mono text-xs text-slate-600">${p.sku}</td>
+                                            <td class="py-2.5 px-4 text-center font-medium text-slate-700">${p.upc}</td>
+                                            <td class="py-2.5 px-4 text-right">
+                                                <input type="number" min="0" value="0" data-order-no="${p.no}" data-upc="${p.upc}" oninput="recalcOrderRow(this)" class="order-carton-input w-28 text-right px-3 py-1.5 rounded-lg border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-none font-semibold text-slate-900">
+                                            </td>
+                                            <td class="py-2.5 px-4 text-right font-bold text-emerald-800 bg-emerald-50/30" id="order-unit-total-${p.no}">0</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="text-sm font-semibold text-slate-700">
+                                Order Summary: <span id="summary-cartons" class="text-emerald-700 font-bold">0</span> Cartons &bull; <span id="summary-units" class="text-emerald-700 font-bold">0</span> Total Units
+                            </div>
+                            <button onclick="initiateOrderSubmit()" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-paper-plane"></i> Submit Order
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        function recalcOrderRow(inputEl) {
+            const no = inputEl.getAttribute('data-order-no');
+            const upc = parseInt(inputEl.getAttribute('data-upc'), 10);
+            const cartons = Math.max(0, parseInt(inputEl.value, 10) || 0);
+            const units = cartons * upc;
+            document.getElementById(`order-unit-total-${no}`).textContent = units.toLocaleString();
+
+            // Update summary totals
+            let totalCartons = 0;
+            let totalUnits = 0;
+            document.querySelectorAll('.order-carton-input').forEach(inp => {
+                const c = Math.max(0, parseInt(inp.value, 10) || 0);
+                const u = parseInt(inp.getAttribute('data-upc'), 10);
+                totalCartons += c;
+                totalUnits += (c * u);
+            });
+            document.getElementById('summary-cartons').textContent = totalCartons.toLocaleString();
+            document.getElementById('summary-units').textContent = totalUnits.toLocaleString();
+        }
+
+        function initiateOrderSubmit() {
+            const dateVal = document.getElementById('new-order-date').value;
+            if (!dateVal) {
+                showToast("Please key in the Order Date before submitting.", "error");
+                return;
+            }
+
+            const items = {};
+            let totalCartons = 0;
+            document.querySelectorAll('.order-carton-input').forEach(inp => {
+                const no = parseInt(inp.getAttribute('data-order-no'), 10);
+                const cartons = Math.max(0, parseInt(inp.value, 10) || 0);
+                if (cartons > 0) {
+                    items[no] = cartons;
+                    totalCartons += cartons;
+                }
+            });
+
+            if (totalCartons === 0) {
+                showToast("Please enter at least 1 carton for a product to place an order.", "error");
+                return;
+            }
+
+            const seller = getLoggedSeller();
+            openPasswordModal({
+                title: "Confirm Order Submission",
+                subtitle: `Enter your account password (${seller.loginName}) to submit order for ${dateVal} and email ${state.keyAccount.email}.`,
+                expectedPassword: seller.password,
+                confirmBtnText: "Submit & Send Email",
+                onSuccess: async () => {
+                    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+                    seller.orders.unshift({
+                        id: orderId,
+                        date: dateVal,
+                        items: items
+                    });
+
+                    await saveSellerToCloud(seller);
+
+                    // Build formatted email body and open mail client / show dispatch notice
+                    let tableText = `New Order from ${seller.companyName} (${seller.loginName})\nDate: ${dateVal}\nDelivery Address: ${seller.deliveryAddress}\n\nNo. | Product Name | SKU | Cartons | Units\n--------------------------------------------------\n`;
+                    PRODUCTS.forEach(p => {
+                        if (items[p.no]) {
+                            tableText += `${p.no} | ${p.name} | ${p.sku} | ${items[p.no]} ctns | ${items[p.no] * p.upc} units\n`;
+                        }
+                    });
+
+                    // Trigger mailto link silently in background if supported, plus UI toast
+                    const mailtoUrl = `mailto:${encodeURIComponent(state.keyAccount.email)}?subject=${encodeURIComponent(`Cloversoft New Order - ${seller.loginName} (${dateVal})`)}&body=${encodeURIComponent(tableText)}`;
+                    const link = document.createElement('a');
+                    link.href = mailtoUrl;
+                    link.click();
+
+                    showToast(`Order submitted & saved to cloud! Table emailed to ${state.keyAccount.email}.`);
+                    navigate('seller-pass-orders');
+                }
+            });
+        }
+
+        // 2.2 Pass Order List & Detail View
+        function renderSellerPassOrdersPage() {
+            const seller = getLoggedSeller();
+            return `
+                ${renderSellerNavbar('pass-orders')}
+                <main class="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100">
+                        <h1 class="text-xl font-bold text-slate-900">Pass Order History</h1>
+                        <p class="text-xs text-slate-500 mt-0.5">Select an order date below to view the submitted product quantities.</p>
+                    </div>
+
+                    ${seller.orders.length === 0 ? `
+                        <div class="bg-white rounded-2xl p-12 text-center border border-emerald-100 shadow-sm">
+                            <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
+                            <h3 class="text-base font-bold text-slate-700">No Past Orders Yet</h3>
+                            <p class="text-xs text-slate-500 mt-1 mb-4">Create your first order using the "New Order" button at the top-left.</p>
+                            <button onclick="navigate('seller-new-order')" class="px-5 py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-semibold">Create New Order</button>
+                        </div>
+                    ` : `
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            ${seller.orders.map(ord => {
+                                const totalCartons = Object.values(ord.items).reduce((a, b) => a + b, 0);
+                                let totalUnits = 0;
+                                PRODUCTS.forEach(p => { if (ord.items[p.no]) totalUnits += ord.items[p.no] * p.upc; });
+                                return `
+                                    <div onclick="navigate('seller-pass-order-detail', { orderId: '${ord.id}' })" class="cursor-pointer bg-white hover:bg-emerald-50/70 rounded-2xl p-5 border border-emerald-100 hover:border-emerald-400 shadow-sm transition group">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold">
+                                                <i class="fa-regular fa-calendar mr-1"></i> ${ord.date}
+                                            </span>
+                                            <span class="text-xs font-mono text-slate-400">${ord.id}</span>
+                                        </div>
+                                        <div class="text-sm font-bold text-slate-800 group-hover:text-emerald-800 transition">
+                                            ${totalCartons} Cartons (${totalUnits.toLocaleString()} Units)
+                                        </div>
+                                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-emerald-700 font-semibold">
+                                            <span>View Product Sheet</span>
+                                            <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `}
+                </main>
+            `;
+        }
+
+        function renderSellerPassOrderDetailPage() {
+            const seller = getLoggedSeller();
+            const order = seller.orders.find(o => o.id === state.selectedOrderId);
+            if (!order) return renderSellerPassOrdersPage();
+
+            return `
+                ${renderSellerNavbar('pass-orders')}
+                <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="navigate('seller-pass-orders')" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                                    <i class="fa-solid fa-arrow-left mr-1"></i> Back to Dates
+                                </button>
+                                <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold">Order Date: ${order.date}</span>
+                            </div>
+                            <h1 class="text-xl font-bold text-slate-900 mt-2">Pass Order Record (${order.id})</h1>
+                        </div>
+                        <div class="text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+                            <i class="fa-solid fa-lock text-emerald-700 mr-1"></i> Fixed Record (Managed by Key Account)
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+                        <div class="overflow-x-auto max-h-[68vh]">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-emerald-800 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
+                                    <tr>
+                                        <th class="py-3.5 px-4 w-14">No.</th>
+                                        <th class="py-3.5 px-4">Products Name</th>
+                                        <th class="py-3.5 px-4">SKU code</th>
+                                        <th class="py-3.5 px-4 text-center">Units Per Carton</th>
+                                        <th class="py-3.5 px-4 text-right">Order Qty (Cartons)</th>
+                                        <th class="py-3.5 px-4 text-right">Total Qty (Units)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    ${PRODUCTS.map(p => {
+                                        const cartons = order.items[p.no] || 0;
+                                        const units = cartons * p.upc;
+                                        return `
+                                            <tr class="${cartons > 0 ? 'bg-emerald-50/40 font-medium' : 'text-slate-400'}">
+                                                <td class="py-2.5 px-4">${p.no}</td>
+                                                <td class="py-2.5 px-4 ${cartons > 0 ? 'text-slate-900' : ''}">${p.name}</td>
+                                                <td class="py-2.5 px-4 font-mono text-xs">${p.sku}</td>
+                                                <td class="py-2.5 px-4 text-center">${p.upc}</td>
+                                                <td class="py-2.5 px-4 text-right ${cartons > 0 ? 'text-emerald-800 font-bold' : ''}">${cartons}</td>
+                                                <td class="py-2.5 px-4 text-right ${cartons > 0 ? 'text-emerald-950 font-bold' : ''}">${units.toLocaleString()}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        // 2.3 Seller Account Page
+        function renderSellerAccountPage() {
+            const seller = getLoggedSeller();
+            return `
+                ${renderSellerNavbar('account')}
+                <main class="max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+                    <!-- Profile Info Section -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+                        <div class="bg-emerald-800 px-6 py-4 text-white">
+                            <h2 class="text-lg font-bold">Seller Account Information</h2>
+                            <p class="text-emerald-200 text-xs">View or edit your store details (Log-in Name cannot be changed)</p>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Log-in Name (Fixed)</label>
+                                    <input type="text" value="${seller.loginName}" readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-semibold text-sm cursor-not-allowed">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Company Name</label>
+                                    <input type="text" id="edit-sel-company" value="${seller.companyName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Contact Number</label>
+                                    <input type="text" id="edit-sel-contact" value="${seller.contactNumber}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
+                                    <input type="email" id="edit-sel-email" value="${seller.email}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Delivery Address</label>
+                                    <textarea id="edit-sel-address" rows="2" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">${seller.deliveryAddress}</textarea>
+                                </div>
+                            </div>
+                            <div class="flex justify-end pt-2">
+                                <button onclick="saveSellerProfileInfo()" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow transition flex items-center gap-2">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit &amp; Save Info
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Change Password Section -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+                        <div class="bg-slate-800 px-6 py-4 text-white">
+                            <h2 class="text-base font-bold">Change Account Password</h2>
+                            <p class="text-slate-300 text-xs">Verify your old password to set a new password</p>
+                        </div>
+                        <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Old Password</label>
+                                <input type="password" id="sel-old-pass" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm" placeholder="Current password">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">New Password</label>
+                                <input type="password" id="sel-new-pass" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm" placeholder="New password">
+                            </div>
+                            <div>
+                                <button onclick="changeSellerPassword()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm shadow transition">
+                                    Update Password
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        function saveSellerProfileInfo() {
+            const seller = getLoggedSeller();
+            const companyName = document.getElementById('edit-sel-company').value.trim();
+            const contactNumber = document.getElementById('edit-sel-contact').value.trim();
+            const email = document.getElementById('edit-sel-email').value.trim();
+            const deliveryAddress = document.getElementById('edit-sel-address').value.trim();
+
+            if (!companyName || !contactNumber || !email || !deliveryAddress) {
+                showToast("All profile fields must be filled in.", "error");
+                return;
+            }
+
+            openPasswordModal({
+                title: "Verify Identity to Edit Info",
+                subtitle: "Please key in your original password to save your updated account information.",
+                expectedPassword: seller.password,
+                confirmBtnText: "Save Changes",
+                onSuccess: async () => {
+                    seller.companyName = companyName;
+                    seller.contactNumber = contactNumber;
+                    seller.email = email;
+                    seller.deliveryAddress = deliveryAddress;
+                    await saveSellerToCloud(seller);
+                    showToast("Seller account information updated in cloud!");
+                    render();
+                }
+            });
+        }
+
+        async function changeSellerPassword() {
+            const seller = getLoggedSeller();
+            const oldP = document.getElementById('sel-old-pass').value;
+            const newP = document.getElementById('sel-new-pass').value;
+
+            if (oldP !== seller.password) {
+                showToast("Old password is incorrect.", "error");
+                return;
+            }
+            if (!newP || newP.length < 4) {
+                showToast("Please enter a valid new password (min 4 characters).", "error");
+                return;
+            }
+
+            seller.password = newP;
+            await saveSellerToCloud(seller);
+            document.getElementById('sel-old-pass').value = '';
+            document.getElementById('sel-new-pass').value = '';
+            showToast("Password changed & saved to cloud!");
+        }
+
+        // ==========================================
+        // 7. KEY ACCOUNT PAGES (3, 3-1, 3-2, 3-1-1, 3-1-2, 3.3)
+        // ==========================================
+
+        // 3. Seller List Page
+        function renderKeySellerListPage() {
+            return `
+                ${renderKeyAccountNavbar('seller-list')}
+                <main class="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-900">Key Account Seller List</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Click on any Seller Log-in Name to inspect their live stock, account info, and pass orders.</p>
+                        </div>
+                        <span class="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                            Total Sellers: ${state.sellers.length}
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        ${state.sellers.map(s => {
+                            const totalUnits = Object.values(s.stock).reduce((a, b) => a + b, 0);
+                            return `
+                                <div onclick="navigate('key-seller-main', { sellerLoginName: '${s.loginName}' })" class="cursor-pointer bg-white hover:bg-emerald-50/60 rounded-2xl p-5 border border-slate-200 hover:border-emerald-500 shadow-sm transition group">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-base">
+                                            ${s.loginName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">
+                                            ${s.orders.length} Orders
+                                        </span>
+                                    </div>
+                                    <h3 class="text-base font-bold text-slate-900 group-hover:text-emerald-800 transition">${s.loginName}</h3>
+                                    <p class="text-xs text-slate-500 truncate mt-0.5">${s.companyName}</p>
+                                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                        <span class="text-slate-600 font-medium">Stock: <strong>${totalUnits.toLocaleString()}</strong> units</span>
+                                        <span class="text-emerald-700 font-bold flex items-center gap-1">
+                                            Open <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </main>
+            `;
+        }
+
+        // Sub-navigation bar when Key Account inspects a specific seller (3-1, 3-1-1, 3-1-2)
+        function renderKeySellerSubHeader(seller, activeSubTab) {
+            return `
+                <div class="bg-emerald-900 text-white px-4 sm:px-6 lg:px-8 py-3 shadow-inner">
+                    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <button onclick="navigate('key-seller-list')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold transition">
+                                <i class="fa-solid fa-arrow-left mr-1"></i> Seller List
+                            </button>
+                            <div>
+                                <span class="text-xs text-emerald-300 uppercase font-bold tracking-wider">Inspecting Seller:</span>
+                                <span class="text-sm font-bold ml-1">${seller.loginName}</span>
+                            </div>
+                        </div>
+
+                        <!-- Top-Middle: Account Info | Top-Right: Pass Order Management -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="navigate('key-seller-main')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeSubTab === 'main' ? 'bg-white text-emerald-950 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
+                                <i class="fa-solid fa-boxes-stacked mr-1"></i> Seller Main Page (Stock)
+                            </button>
+                            <button onclick="navigate('key-seller-info')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeSubTab === 'info' ? 'bg-white text-emerald-950 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
+                                <i class="fa-solid fa-address-card mr-1"></i> Account Info
+                            </button>
+                            <button onclick="navigate('key-pass-order-mgmt')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${activeSubTab === 'orders' ? 'bg-white text-emerald-950 shadow' : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100'}">
+                                <i class="fa-solid fa-file-invoice mr-1"></i> Pass Order Management
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 3-1 Seller Main Page (Live view of seller's current stock)
+        function renderKeySellerMainPage() {
+            const seller = getSelectedSellerForKey();
+            if (!seller) return renderKeySellerListPage();
+
+            return `
+                ${renderKeyAccountNavbar('seller-list')}
+                ${renderKeySellerSubHeader(seller, 'main')}
+                <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-900">${seller.loginName} — Current Stock</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Live synchronized inventory from ${seller.companyName}'s Main Page.</p>
+                        </div>
+                        <span class="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                            Contact: ${seller.contactNumber} &bull; ${seller.email}
+                        </span>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto max-h-[66vh]">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-800 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
+                                    <tr>
+                                        <th class="py-3.5 px-4 w-16">No.</th>
+                                        <th class="py-3.5 px-4">Products Name</th>
+                                        <th class="py-3.5 px-4">SKU code</th>
+                                        <th class="py-3.5 px-4 text-center">Units Per Carton</th>
+                                        <th class="py-3.5 px-4 text-right">Current Stock (Units)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    ${PRODUCTS.map(p => {
+                                        const qty = seller.stock[p.no] ?? 0;
+                                        return `
+                                            <tr class="${qty > 0 ? 'bg-emerald-50/30' : ''}">
+                                                <td class="py-2.5 px-4 font-semibold text-slate-500">${p.no}</td>
+                                                <td class="py-2.5 px-4 font-medium text-slate-900">${p.name}</td>
+                                                <td class="py-2.5 px-4 font-mono text-xs text-slate-600">${p.sku}</td>
+                                                <td class="py-2.5 px-4 text-center text-slate-700">${p.upc}</td>
+                                                <td class="py-2.5 px-4 text-right font-bold ${qty > 0 ? 'text-emerald-800' : 'text-slate-400'}">${qty.toLocaleString()}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        // 3-2 Overall Page (Excel-style matrix: Rows = Products, Columns = Seller Log-in Names)
+        function renderKeyOverallPage() {
+            return `
+                ${renderKeyAccountNavbar('overall')}
+                <main class="max-w-full mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-900">Overall Seller Stock Matrix</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Live cross-seller inventory sheet updated automatically from each seller's Current Stock.</p>
+                        </div>
+                        <button onclick="exportOverallCSV()" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i> Export CSV / Excel
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto max-h-[70vh]">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead class="bg-slate-900 text-white text-xs uppercase tracking-wider sticky top-0 z-20">
+                                    <tr>
+                                        <th class="py-3.5 px-3 w-12 sticky left-0 bg-slate-900 z-30">No.</th>
+                                        <th class="py-3.5 px-4 min-w-[220px] sticky left-12 bg-slate-900 z-30 border-r border-slate-700">Products Name</th>
+                                        <th class="py-3.5 px-3">SKU</th>
+                                        ${state.sellers.map(s => `
+                                            <th class="py-3.5 px-4 text-right min-w-[130px] bg-emerald-950 border-l border-slate-700">
+                                                <button onclick="navigate('key-seller-main', { sellerLoginName: '${s.loginName}' })" class="hover:underline text-emerald-300 font-bold">
+                                                    ${s.loginName}
+                                                </button>
+                                            </th>
+                                        `).join('')}
+                                        <th class="py-3.5 px-4 text-right bg-slate-800 border-l border-slate-700">Total All Sellers</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    ${PRODUCTS.map(p => {
+                                        let rowSum = 0;
+                                        const cells = state.sellers.map(s => {
+                                            const val = s.stock[p.no] ?? 0;
+                                            rowSum += val;
+                                            return `<td class="py-2.5 px-4 text-right border-l border-slate-100 font-medium ${val > 0 ? 'text-slate-900 bg-emerald-50/20' : 'text-slate-400'}">${val.toLocaleString()}</td>`;
+                                        }).join('');
+
+                                        return `
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="py-2.5 px-3 font-semibold text-slate-500 sticky left-0 bg-white">${p.no}</td>
+                                                <td class="py-2.5 px-4 font-medium text-slate-900 sticky left-12 bg-white border-r border-slate-200">${p.name}</td>
+                                                <td class="py-2.5 px-3 font-mono text-xs text-slate-500">${p.sku}</td>
+                                                ${cells}
+                                                <td class="py-2.5 px-4 text-right font-bold text-emerald-900 bg-slate-50 border-l border-slate-200">${rowSum.toLocaleString()}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        function exportOverallCSV() {
+            const headers = ["No.", "Products Name", "SKU code", ...state.sellers.map(s => s.loginName), "Total"];
+            const rows = PRODUCTS.map(p => {
+                let sum = 0;
+                const sellerVals = state.sellers.map(s => {
+                    const v = s.stock[p.no] ?? 0;
+                    sum += v;
+                    return v;
+                });
+                return [p.no, `"${p.name}"`, p.sku, ...sellerVals, sum].join(",");
+            });
+            const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Cloversoft_Overall_Seller_Stock_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast("Overall Seller Stock CSV downloaded!");
+        }
+
+        // 3-1-1 Account Info (Key Account viewing/editing/removing an individual seller)
+        function renderKeySellerInfoPage() {
+            const seller = getSelectedSellerForKey();
+            if (!seller) return renderKeySellerListPage();
+
+            return `
+                ${renderKeyAccountNavbar('seller-list')}
+                ${renderKeySellerSubHeader(seller, 'info')}
+                <main class="max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-800 px-6 py-4 text-white flex items-center justify-between">
+                            <div>
+                                <h2 class="text-lg font-bold">Seller Account Info: ${seller.loginName}</h2>
+                                <p class="text-slate-300 text-xs">Key Account Administrators can modify all fields or remove this seller account.</p>
+                            </div>
+                        </div>
+
+                        <div class="p-6 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Log-in Name (Editable by Key Account)</label>
+                                    <input type="text" id="ka-edit-sel-login" value="${seller.loginName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm font-semibold">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password</label>
+                                    <input type="text" id="ka-edit-sel-pass" value="${seller.password}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Company Name</label>
+                                    <input type="text" id="ka-edit-sel-company" value="${seller.companyName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Contact Number</label>
+                                    <input type="text" id="ka-edit-sel-contact" value="${seller.contactNumber}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
+                                    <input type="email" id="ka-edit-sel-email" value="${seller.email}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Delivery Address</label>
+                                    <textarea id="ka-edit-sel-address" rows="2" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">${seller.deliveryAddress}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                                <button onclick="keyRemoveSellerAccount()" class="px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 font-semibold text-xs transition flex items-center gap-2">
+                                    <i class="fa-solid fa-trash-can"></i> Remove Seller Account
+                                </button>
+                                <button onclick="keySaveSellerInfo()" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow transition flex items-center gap-2">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit &amp; Save Seller Info
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        function keySaveSellerInfo() {
+            const seller = getSelectedSellerForKey();
+            const newLogin = document.getElementById('ka-edit-sel-login').value.trim();
+            const newPass = document.getElementById('ka-edit-sel-pass').value;
+            const newCompany = document.getElementById('ka-edit-sel-company').value.trim();
+            const newContact = document.getElementById('ka-edit-sel-contact').value.trim();
+            const newEmail = document.getElementById('ka-edit-sel-email').value.trim();
+            const newAddress = document.getElementById('ka-edit-sel-address').value.trim();
+
+            if (!newLogin || !newPass || !newCompany || !newContact || !newEmail || !newAddress) {
+                showToast("All fields are required.", "error");
+                return;
+            }
+
+            if (newLogin !== seller.loginName && state.sellers.some(s => s.loginName.toLowerCase() === newLogin.toLowerCase())) {
+                showToast("Another seller already uses that Log-in Name.", "error");
+                return;
+            }
+
+            openPasswordModal({
+                title: "Key Account Authorization",
+                subtitle: "Enter Key Account password to save changes to this seller's account.",
+                expectedPassword: state.keyAccount.password,
+                confirmBtnText: "Authorize & Save",
+                onSuccess: async () => {
+                    seller.loginName = newLogin;
+                    seller.password = newPass;
+                    seller.companyName = newCompany;
+                    seller.contactNumber = newContact;
+                    seller.email = newEmail;
+                    seller.deliveryAddress = newAddress;
+                    state.selectedSellerLoginName = newLogin;
+                    await saveSellerToCloud(seller);
+                    showToast("Seller account details updated in cloud by Key Account!");
+                    render();
+                }
+            });
+        }
+
+        function keyRemoveSellerAccount() {
+            const seller = getSelectedSellerForKey();
+            openPasswordModal({
+                title: "Remove Seller Account",
+                subtitle: `Warning: This will permanently delete "${seller.loginName}". Enter Key Account password to proceed.`,
+                expectedPassword: state.keyAccount.password,
+                confirmBtnText: "Delete Account",
+                isDanger: true,
+                onSuccess: async () => {
+                    state.sellers = state.sellers.filter(s => s.loginName !== seller.loginName);
+                    await deleteSellerFromCloud(seller);
+                    showToast(`Seller account "${seller.loginName}" has been removed from cloud.`, "info");
+                    navigate('key-seller-list');
+                }
+            });
+        }
+
+        // 3-1-2 Pass Order Management (Directly linked to seller's Pass Order Sheet, editable quantity cells)
+        function renderKeyPassOrderMgmtPage() {
+            const seller = getSelectedSellerForKey();
+            if (!seller) return renderKeySellerListPage();
+
+            // Default select the latest order if none selected
+            if (!state.selectedOrderId && seller.orders.length > 0) {
+                state.selectedOrderId = seller.orders[0].id;
+            }
+            const activeOrder = seller.orders.find(o => o.id === state.selectedOrderId);
+
+            return `
+                ${renderKeyAccountNavbar('seller-list')}
+                ${renderKeySellerSubHeader(seller, 'orders')}
+                <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-900">Pass Order Management — ${seller.loginName}</h1>
+                            <p class="text-xs text-slate-500 mt-0.5">Directly linked to the seller's Pass Order Sheet. Each carton quantity cell can be adjusted and saved.</p>
+                        </div>
+                        ${seller.orders.length > 0 ? `
+                            <div class="flex items-center gap-3">
+                                <label class="text-xs font-bold uppercase text-slate-600">Select Order Date:</label>
+                                <select onchange="state.selectedOrderId = this.value; render();" class="px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white outline-none focus:border-emerald-600">
+                                    ${seller.orders.map(o => `<option value="${o.id}" ${o.id === activeOrder?.id ? 'selected' : ''}>${o.date} (${o.id})</option>`).join('')}
+                                </select>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    ${!activeOrder ? `
+                        <div class="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
+                            <i class="fa-solid fa-clipboard-list text-4xl text-slate-300 mb-3"></i>
+                            <h3 class="text-base font-bold text-slate-700">No Pass Orders Found</h3>
+                            <p class="text-xs text-slate-500 mt-1">This seller has not submitted any orders yet.</p>
+                        </div>
+                    ` : `
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="overflow-x-auto max-h-[64vh]">
+                                <table class="w-full text-left border-collapse">
+                                    <thead class="bg-slate-800 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
+                                        <tr>
+                                            <th class="py-3.5 px-4 w-14">No.</th>
+                                            <th class="py-3.5 px-4">Products Name</th>
+                                            <th class="py-3.5 px-4">SKU code</th>
+                                            <th class="py-3.5 px-4 text-center">Units Per Carton</th>
+                                            <th class="py-3.5 px-4 text-right w-44">Order Qty (Cartons - Editable)</th>
+                                            <th class="py-3.5 px-4 text-right w-40">Total Qty (Units)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 text-sm">
+                                        ${PRODUCTS.map(p => {
+                                            const cartons = activeOrder.items[p.no] || 0;
+                                            const units = cartons * p.upc;
+                                            return `
+                                                <tr class="${cartons > 0 ? 'bg-amber-50/40' : ''}">
+                                                    <td class="py-2.5 px-4 font-semibold text-slate-500">${p.no}</td>
+                                                    <td class="py-2.5 px-4 font-medium text-slate-900">${p.name}</td>
+                                                    <td class="py-2.5 px-4 font-mono text-xs text-slate-600">${p.sku}</td>
+                                                    <td class="py-2.5 px-4 text-center text-slate-700">${p.upc}</td>
+                                                    <td class="py-2.5 px-4 text-right">
+                                                        <input type="number" min="0" value="${cartons}" data-ka-ord-no="${p.no}" data-upc="${p.upc}" oninput="recalcKeyOrderRow(this)" class="ka-order-cell w-28 text-right px-3 py-1.5 rounded-lg border border-slate-300 focus:border-emerald-600 outline-none font-bold text-slate-900">
+                                                    </td>
+                                                    <td class="py-2.5 px-4 text-right font-bold text-emerald-800" id="ka-ord-units-${p.no}">${units.toLocaleString()}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                                <span class="text-xs text-slate-500">Changes saved here immediately update ${seller.loginName}'s Pass Order sheet.</span>
+                                <button onclick="saveKeyPassOrderEdits()" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow transition flex items-center gap-2">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Pass Order Changes
+                                </button>
+                            </div>
+                        </div>
+                    `}
+                </main>
+            `;
+        }
+
+        function recalcKeyOrderRow(inp) {
+            const no = inp.getAttribute('data-ka-ord-no');
+            const upc = parseInt(inp.getAttribute('data-upc'), 10);
+            const c = Math.max(0, parseInt(inp.value, 10) || 0);
+            document.getElementById(`ka-ord-units-${no}`).textContent = (c * upc).toLocaleString();
+        }
+        async function saveKeyPassOrderEdits() {
+            const seller = getSelectedSellerForKey();
+            const activeOrder = seller.orders.find(o => o.id === state.selectedOrderId);
+            if (!activeOrder) return;
+
+            const updatedItems = {};
+            document.querySelectorAll('.ka-order-cell').forEach(inp => {
+                const no = parseInt(inp.getAttribute('data-ka-ord-no'), 10);
+                const c = Math.max(0, parseInt(inp.value, 10) || 0);
+                if (c > 0) updatedItems[no] = c;
+            });
+
+            activeOrder.items = updatedItems;
+            await saveSellerToCloud(seller);
+            showToast(`Pass Order (${activeOrder.date}) updated in cloud and synced to ${seller.loginName}!`);
+            render();
+        }
+
+        // 3.3 Account Page - Key Account
+        function renderKeyAccountPage() {
+            const ka = state.keyAccount;
+            return `
+                ${renderKeyAccountNavbar('key-account')}
+                <main class="max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-900 px-6 py-4 text-white">
+                            <h2 class="text-lg font-bold">Account Page - Key Account</h2>
+                            <p class="text-slate-300 text-xs">Master Administrator Profile (All fields can be edited with password verification)</p>
+                        </div>
+
+                        <div class="p-6 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Key Account Log-in Name</label>
+                                    <input type="text" id="ka-own-login" value="${ka.loginName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm font-semibold">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Company Name</label>
+                                    <input type="text" id="ka-own-company" value="${ka.companyName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Contact Number</label>
+                                    <input type="text" id="ka-own-contact" value="${ka.contactNumber}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address (Receives Seller Orders)</label>
+                                    <input type="email" id="ka-own-email" value="${ka.email}" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Delivery Address</label>
+                                    <textarea id="ka-own-address" rows="2" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm">${ka.deliveryAddress}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end pt-2">
+                                <button onclick="saveKeyAccountOwnInfo()" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm shadow transition flex items-center gap-2">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit &amp; Save Key Account Info
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Change Key Account Password -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-800 px-6 py-4 text-white">
+                            <h2 class="text-base font-bold">Change Key Account Password</h2>
+                            <p class="text-slate-300 text-xs">Key in your old password to set a new password</p>
+                        </div>
+                        <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Old Password</label>
+                                <input type="password" id="ka-old-pass" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm" placeholder="Current password">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">New Password</label>
+                                <input type="password" id="ka-new-pass" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 outline-none text-sm" placeholder="New password">
+                            </div>
+                            <div>
+                                <button onclick="changeKeyAccountPassword()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-950 text-white font-semibold text-sm shadow transition">
+                                    Update Password
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            `;
+        }
+
+        function saveKeyAccountOwnInfo() {
+            const loginName = document.getElementById('ka-own-login').value.trim();
+            const companyName = document.getElementById('ka-own-company').value.trim();
+            const contactNumber = document.getElementById('ka-own-contact').value.trim();
+            const email = document.getElementById('ka-own-email').value.trim();
+            const deliveryAddress = document.getElementById('ka-own-address').value.trim();
+
+            if (!loginName || !companyName || !contactNumber || !email || !deliveryAddress) {
+                showToast("All fields must be filled in.", "error");
+                return;
+            }
+
+            openPasswordModal({
+                title: "Verify Key Account Password",
+                subtitle: "Please key in your original password to proceed with updating Key Account information.",
+                expectedPassword: state.keyAccount.password,
+                confirmBtnText: "Save Changes",
+                onSuccess: async () => {
+                    state.keyAccount.loginName = loginName;
+                    state.keyAccount.companyName = companyName;
+                    state.keyAccount.contactNumber = contactNumber;
+                    state.keyAccount.email = email;
+                    state.keyAccount.deliveryAddress = deliveryAddress;
+                    state.currentUser.loginName = loginName;
+                    await saveKeyAccountToCloud();
+                    showToast("Key Account information updated in cloud!");
+                    render();
+                }
+            });
+        }
+
+        async function changeKeyAccountPassword() {
+            const oldP = document.getElementById('ka-old-pass').value;
+            const newP = document.getElementById('ka-new-pass').value;
+
+            if (oldP !== state.keyAccount.password) {
+                showToast("Old password is incorrect.", "error");
+                return;
+            }
+            if (!newP || newP.length < 4) {
+                showToast("Please enter a valid new password.", "error");
+                return;
+            }
+
+            state.keyAccount.password = newP;
+            await saveKeyAccountToCloud();
+            document.getElementById('ka-old-pass').value = '';
+            document.getElementById('ka-new-pass').value = '';
+            showToast("Key Account password updated in cloud!");
+        }
+
+        // ==========================================
+        // 8. MAIN RENDER ROUTER & GLOBAL EXPORTS
+        // ==========================================
+        function render() {
+            const app = document.getElementById('app');
+            switch (state.currentView) {
+                case 'login':
+                    app.innerHTML = renderLoginPage();
+                    attachLoginHandlers();
+                    break;
+                case 'create-account':
+                    app.innerHTML = renderCreateAccountPage();
+                    attachCreateAccountHandlers();
+                    break;
+                case 'reset-password':
+                    app.innerHTML = renderResetPasswordPage();
+                    break;
+                case 'seller-stock':
+                    app.innerHTML = renderSellerStockPage();
+                    break;
+                case 'seller-new-order':
+                    app.innerHTML = renderSellerNewOrderPage();
+                    break;
+                case 'seller-pass-orders':
+                    app.innerHTML = renderSellerPassOrdersPage();
+                    break;
+                case 'seller-pass-order-detail':
+                    app.innerHTML = renderSellerPassOrderDetailPage();
+                    break;
+                case 'seller-account':
+                    app.innerHTML = renderSellerAccountPage();
+                    break;
+                case 'key-seller-list':
+                    app.innerHTML = renderKeySellerListPage();
+                    break;
+                case 'key-overall':
+                    app.innerHTML = renderKeyOverallPage();
+                    break;
+                case 'key-account':
+                    app.innerHTML = renderKeyAccountPage();
+                    break;
+                case 'key-seller-main':
+                    app.innerHTML = renderKeySellerMainPage();
+                    break;
+                case 'key-seller-info':
+                    app.innerHTML = renderKeySellerInfoPage();
+                    break;
+                case 'key-pass-order-mgmt':
+                    app.innerHTML = renderKeyPassOrderMgmtPage();
+                    break;
+                default:
+                    app.innerHTML = renderLoginPage();
+                    attachLoginHandlers();
+            }
+        }
+
+        // Expose functions globally for inline HTML event handlers (required for type="module")
+        Object.assign(window, {
+            navigate,
+            logout,
+            refreshCaptcha,
+            closeModal,
+            startResetFlow,
+            verifyIdentityForReset,
+            sendSixDigitCode,
+            checkSixDigitCode,
+            completePasswordReset,
+            saveSellerStock,
+            recalcOrderRow,
+            initiateOrderSubmit,
+            saveSellerProfileInfo,
+            changeSellerPassword,
+            exportOverallCSV,
+            keySaveSellerInfo,
+            keyRemoveSellerAccount,
+            recalcKeyOrderRow,
+            saveKeyPassOrderEdits,
+            saveKeyAccountOwnInfo,
+            changeKeyAccountPassword,
+            render,
+            state
+        });
+
+        // Initialize on load (Always starts on Log-in page & connects to cloud storage)
+        window.onload = () => {
+            render();
+            initCloudStorage();
+        };
+    </script>
+</body>
+</html>
